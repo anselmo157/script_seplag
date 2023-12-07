@@ -1,6 +1,5 @@
 import psycopg2
 
-
 def connect_db():
     connection = psycopg2.connect(host='localhost',
                                   database='cabemce_v01',
@@ -8,14 +7,12 @@ def connect_db():
                                   password='34784575')
     return connection
 
-
 def create_db(sql):
     con = connect_db()
     cur = con.cursor()
     cur.execute(sql)
     con.commit()
     con.close()
-
 
 def execute_sql(sql):
     con = connect_db()
@@ -31,7 +28,6 @@ def execute_sql(sql):
         return 1
 
     cur.close()
-
 
 def query_db(sql):
     con = connect_db()
@@ -166,8 +162,3 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
             if teste[i][1] is not None and teste[i][1] == associados[j][1]:
                 sql_delete = '''delete from public.teste where id_associado = (%s)''' % (teste[i][0])
                 execute_sql(sql_delete)
-
-
-
-
-
