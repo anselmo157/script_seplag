@@ -116,6 +116,25 @@ order by nome_associado"""
                   )'''
     create_db(sql)
 
+    sql = 'DROP TABLE IF EXISTS public.teste_enderecos'
+    create_db(sql)
+
+    sql = '''CREATE TABLE public.teste_enderecos
+                  ( id_endereco              serial primary key, 
+                    denominacao              character varying(150), 
+                    logradouro               character varying(250),
+                    numero                   character varying(40),
+                    complemento              character varying(100), 
+                    bairro                   character varying(200), 
+                    cep                      integer,
+                    created                  timestamp,
+                    modified                 timestamp,
+                    associado_id             integer,
+                    dependente_id            integer,
+                    is_cobranca              boolean
+                  )'''
+    create_db(sql)
+
     for i in range(len(toAdd)):
         sql = """
             INSERT into public.teste (nome_associado,matricula,orgaoaverbador_id,rubrica_id) 
@@ -136,6 +155,7 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
     for i in range(len(teste)):
         for j in range(len(silveira)):
             if teste[i][0] == silveira[j][0] and (teste[i][1] == silveira[j][1] or teste[i][2] == silveira[j][2]):
+
                 cpf = ''
                 if len(silveira[j][3]) < 11:
                     zeros_plus = 11 - len(silveira[j][3])
@@ -143,10 +163,26 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
                     cpf = cpf[:9] + '-' +  cpf[9:]
                 else:
                     cpf = silveira[j][3][:9] + '-' + silveira[j][3][9:]
-                sql_update = """update public.teste set cpf = ('%s'), email1 = ('%s'), telefone = ('%s') where id_associado = ('%s')""" % (
-                cpf, silveira[j][4] if
-                silveira[j][4] is not None else 'null', silveira[j][5] if silveira[j][5] is not None else 'null',
-                teste[i][3])
+
+                sql_update = """update public.teste set cpf = ('%s'), email1 = ('%s'), telefone = ('%s') where id_associado = ('%s')
+                             """ % (
+                    cpf,
+                    silveira[j][4] if silveira[j][4] is not None else 'null',
+                    silveira[j][5] if silveira[j][5] is not None else 'null',
+                    teste[i][3])
+
+                sql_insert = """
+                            INSERT into public.teste_enderecos (cep, logradouro, numero, complemento, bairro, associado_id) 
+                            values(%s,'%s','%s','%s', '%s', %s);
+                            """ % (
+                    int(silveira[j][6]) if silveira[j][6] is not None else 'null',
+                    silveira[j][7].replace("'",'') if silveira[j][7] is not None else 'null',
+                    silveira[j][8].replace("'",'') if silveira[j][8] is not None else 'null',
+                    silveira[j][9].replace("'",'') if silveira[j][9] is not None else 'null',
+                    silveira[j][10].replace("'",'') if silveira[j][10] is not None else 'null',
+                    teste[i][3])
+
+                execute_sql(sql_insert)
                 execute_sql(sql_update)
 
     sql_associados = """select id_associado, cpf from public.associados order by id_associado"""
@@ -160,5 +196,7 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
     for i in range(len(teste)):
         for j in range(len(associados)):
             if teste[i][1] is not None and teste[i][1] == associados[j][1]:
-                sql_delete = '''delete from public.teste where id_associado = (%s)''' % (teste[i][0])
-                execute_sql(sql_delete)
+                sql_update = """
+                             update public.teste set cpf = null where id_associado = ('%s')
+                             """ % (teste[i][0])
+                execute_sql(sql_update)
