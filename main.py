@@ -1,5 +1,6 @@
 import psycopg2
 
+
 def connect_db():
     connection = psycopg2.connect(host='localhost',
                                   database='cabemce_v01',
@@ -7,12 +8,14 @@ def connect_db():
                                   password='34784575')
     return connection
 
+
 def create_db(sql):
     con = connect_db()
     cur = con.cursor()
     cur.execute(sql)
     con.commit()
     con.close()
+
 
 def execute_sql(sql):
     con = connect_db()
@@ -29,6 +32,7 @@ def execute_sql(sql):
 
     cur.close()
 
+
 def query_db(sql):
     con = connect_db()
     cur = con.cursor()
@@ -40,6 +44,7 @@ def query_db(sql):
     con.close()
 
     return registers
+
 
 if __name__ == '__main__':
     sql_associados = """select nome_associado, matricula, codigo_orgao_averbador from associados
@@ -160,7 +165,7 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
                 if len(silveira[j][3]) < 11:
                     zeros_plus = 11 - len(silveira[j][3])
                     cpf = (zeros_plus * '0') + silveira[j][3]
-                    cpf = cpf[:9] + '-' +  cpf[9:]
+                    cpf = cpf[:9] + '-' + cpf[9:]
                 else:
                     cpf = silveira[j][3][:9] + '-' + silveira[j][3][9:]
 
@@ -176,10 +181,10 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
                             values(%s,'%s','%s','%s', '%s', %s);
                             """ % (
                     int(silveira[j][6]) if silveira[j][6] is not None else 'null',
-                    silveira[j][7].replace("'",'') if silveira[j][7] is not None else 'null',
-                    silveira[j][8].replace("'",'') if silveira[j][8] is not None else 'null',
-                    silveira[j][9].replace("'",'') if silveira[j][9] is not None else 'null',
-                    silveira[j][10].replace("'",'') if silveira[j][10] is not None else 'null',
+                    silveira[j][7].replace("'", '') if silveira[j][7] is not None else 'null',
+                    silveira[j][8].replace("'", '') if silveira[j][8] is not None else 'null',
+                    silveira[j][9].replace("'", '') if silveira[j][9] is not None else 'null',
+                    silveira[j][10].replace("'", '') if silveira[j][10] is not None else 'null',
                     teste[i][3])
 
                 execute_sql(sql_insert)
