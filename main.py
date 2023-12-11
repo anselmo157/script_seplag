@@ -142,6 +142,19 @@ order by nome_associado"""
                   )'''
     create_db(sql)
 
+    sql = 'DROP TABLE IF EXISTS public.teste_telefones'
+    create_db(sql)
+
+    sql = '''CREATE TABLE public.teste_telefones
+                      ( id_telefone              serial primary key, 
+                        numero_telefone          text,
+                        codigo_area              integer,
+                        associado_id             integer,
+                        created                  timestamp without time zone,
+                        modified                 timestamp without time zone
+                      )'''
+    create_db(sql)
+
     for i in range(len(toAdd)):
         sql = """
             INSERT into public.teste (nome_associado,matricula,orgaoaverbador_id,rubrica_id,created,modified) 
@@ -162,8 +175,8 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
     for i in range(len(teste)):
         for j in range(len(silveira)):
             if teste[i][0] == silveira[j][0] and (teste[i][1] == silveira[j][1] or teste[i][2] == silveira[j][2]):
-
                 cpf = ''
+
                 if len(silveira[j][3]) < 11:
                     zeros_plus = 11 - len(silveira[j][3])
                     cpf = (zeros_plus * '0') + silveira[j][3]
@@ -171,29 +184,108 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
                 else:
                     cpf = silveira[j][3][:9] + '-' + silveira[j][3][9:]
 
-                sql_update = """update public.teste set cpf = ('%s'), email1 = ('%s'), telefone = ('%s'), modified = ('%s') where id_associado = ('%s')
-                             """ % (
-                    cpf,
-                    silveira[j][4] if silveira[j][4] is not None else 'null',
-                    silveira[j][5] if silveira[j][5] is not None else 'null',
-                    datetime.now(),
-                    teste[i][3])
+                cidade_id = None
 
-                sql_insert = """
-                            INSERT into public.teste_enderecos (cep, logradouro, numero, complemento, bairro, associado_id, created, modified) 
-                            values(%s,'%s','%s','%s', '%s', %s, '%s', '%s');
-                            """ % (
-                    int(silveira[j][6]) if silveira[j][6] is not None else 'null',
-                    silveira[j][7].replace("'", '') if silveira[j][7] is not None else 'null',
-                    silveira[j][8].replace("'", '') if silveira[j][8] is not None else 'null',
-                    silveira[j][9].replace("'", '') if silveira[j][9] is not None else 'null',
-                    silveira[j][10].replace("'", '') if silveira[j][10] is not None else 'null',
-                    teste[i][3],
-                    datetime.now(),
-                    datetime.now())
+                if silveira[j][11] is not None:
+                    sql_cidade = """
+                                    select id_cidade from cidades where nome_municipio = ('%s')
+                                """ % (silveira[j][11].upper())
 
-                execute_sql(sql_insert)
+                    aux = query_db(sql_cidade)
+                    if len(aux) > 0:
+                        cidade_id = aux[0][0]
+
+                ddd = None
+                phone = None
+
+                if silveira[j][5] is not None:
+                    if len(silveira[j][5]) < 10:
+                        ddd = None
+                        if len(silveira[j][5]) < 8:
+                            phone = '3' + silveira[j][5]
+                        else:
+                            phone = silveira[j][5]
+                    else:
+                        ddd = silveira[j][5][:2]
+                        phone = silveira[j][5][2:]
+
+                sql_update = None
+                sql_insert_address = None
+                sql_insert_phone = None
+
+                if cidade_id is None:
+                    sql_update = """update public.teste set cpf = ('%s'), email1 = ('%s'), telefone = ('%s'), modified = ('%s') where id_associado = ('%s')
+                                                """ % (
+                        cpf,
+                        silveira[j][4] if silveira[j][4] is not None else 'null',
+                        silveira[j][5] if silveira[j][5] is not None else 'null',
+                        datetime.now(),
+                        teste[i][3])
+
+                    sql_insert_address = """
+                                               INSERT into public.teste_enderecos (cep, logradouro, numero, complemento, bairro, associado_id, created, modified) 
+                                               values(%s,'%s','%s','%s', '%s', %s, '%s', '%s');
+                                               """ % (
+                        int(silveira[j][6]) if silveira[j][6] is not None else 'null',
+                        silveira[j][7].replace("'", '') if silveira[j][7] is not None else 'null',
+                        silveira[j][8].replace("'", '') if silveira[j][8] is not None else 'null',
+                        silveira[j][9].replace("'", '') if silveira[j][9] is not None else 'null',
+                        silveira[j][10].replace("'", '') if silveira[j][10] is not None else 'null',
+                        teste[i][3],
+                        datetime.now(),
+                        datetime.now())
+                else:
+                    sql_update = """update public.teste set cpf = ('%s'), email1 = ('%s'), telefone = ('%s'), cidade_id = %s, modified = ('%s') where id_associado = ('%s')
+                                 """ % (
+                        cpf,
+                        silveira[j][4] if silveira[j][4] is not None else 'null',
+                        silveira[j][5] if silveira[j][5] is not None else 'null',
+                        cidade_id,
+                        datetime.now(),
+                        teste[i][3])
+
+                    sql_insert_address = """
+                                INSERT into public.teste_enderecos (cep, logradouro, numero, complemento, bairro, cidade_id ,associado_id, created, modified) 
+                                values(%s,'%s','%s','%s', '%s', %s, %s, '%s', '%s');
+                                """ % (
+                        int(silveira[j][6]) if silveira[j][6] is not None else 'null',
+                        silveira[j][7].replace("'", '') if silveira[j][7] is not None else 'null',
+                        silveira[j][8].replace("'", '') if silveira[j][8] is not None else 'null',
+                        silveira[j][9].replace("'", '') if silveira[j][9] is not None else 'null',
+                        silveira[j][10].replace("'", '') if silveira[j][10] is not None else 'null',
+                        cidade_id,
+                        teste[i][3],
+                        datetime.now(),
+                        datetime.now())
+
+                if ddd is None:
+                    sql_insert_phone = """
+                                       insert into public.teste_telefones (numero_telefone, associado_id, created, modified)
+                                       values(%s, %s, '%s', '%s')
+                                       """ % (
+                                              phone,
+
+                                              teste[i][3],
+                                              datetime.now(),
+                                              datetime.now()
+                                       )
+                else :
+                    sql_insert_phone = """
+                                       insert into public.teste_telefones (numero_telefone, codigo_area, associado_id, created, modified)
+                                       values(%s, '%s', %s, '%s', '%s')
+                                       """ % (
+                                             phone,
+                                             ddd if ddd is not None else 'null',
+                                             teste[i][3],
+                                             datetime.now(),
+                                             datetime.now()
+                                       )
+
                 execute_sql(sql_update)
+                if silveira[j][7] is not None:
+                    execute_sql(sql_insert_address)
+                if silveira[j][5] is not None:
+                    execute_sql(sql_insert_phone)
 
     sql_associados = """select id_associado, cpf from public.associados order by id_associado"""
 
