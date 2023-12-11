@@ -1,3 +1,4 @@
+from datetime import datetime
 import psycopg2
 
 
@@ -106,8 +107,8 @@ order by nome_associado"""
                     cidade_id                integer, 
                     postograduacao_id        integer,
                     bloqueio_id              integer,
-                    created                  timestamp,
-                    modified                 timestamp,
+                    created                  timestamp without time zone,
+                    modified                 timestamp without time zone,
                     rubrica_id               integer,
                     nome_seplag              character varying,
                     observacao               character varying,
@@ -132,8 +133,9 @@ order by nome_associado"""
                     complemento              character varying(100), 
                     bairro                   character varying(200), 
                     cep                      integer,
-                    created                  timestamp,
-                    modified                 timestamp,
+                    cidade_id                integer,
+                    created                  timestamp without time zone,
+                    modified                 timestamp without time zone,
                     associado_id             integer,
                     dependente_id            integer,
                     is_cobranca              boolean
@@ -142,10 +144,10 @@ order by nome_associado"""
 
     for i in range(len(toAdd)):
         sql = """
-            INSERT into public.teste (nome_associado,matricula,orgaoaverbador_id,rubrica_id) 
-            values('%s','%s','%s','%s');
+            INSERT into public.teste (nome_associado,matricula,orgaoaverbador_id,rubrica_id,created,modified) 
+            values('%s','%s','%s','%s','%s','%s');
             """ % (
-            toAdd[i][0], toAdd[i][1], toAdd[i][2], toAdd[i][3])
+            toAdd[i][0], toAdd[i][1], toAdd[i][2], toAdd[i][3], datetime.now(), datetime.now())
         execute_sql(sql)
 
     sql_silveira = """select nome, matricula, orgao, cpf, email, telefone, cep, endereco, 
@@ -169,23 +171,26 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
                 else:
                     cpf = silveira[j][3][:9] + '-' + silveira[j][3][9:]
 
-                sql_update = """update public.teste set cpf = ('%s'), email1 = ('%s'), telefone = ('%s') where id_associado = ('%s')
+                sql_update = """update public.teste set cpf = ('%s'), email1 = ('%s'), telefone = ('%s'), modified = ('%s') where id_associado = ('%s')
                              """ % (
                     cpf,
                     silveira[j][4] if silveira[j][4] is not None else 'null',
                     silveira[j][5] if silveira[j][5] is not None else 'null',
+                    datetime.now(),
                     teste[i][3])
 
                 sql_insert = """
-                            INSERT into public.teste_enderecos (cep, logradouro, numero, complemento, bairro, associado_id) 
-                            values(%s,'%s','%s','%s', '%s', %s);
+                            INSERT into public.teste_enderecos (cep, logradouro, numero, complemento, bairro, associado_id, created, modified) 
+                            values(%s,'%s','%s','%s', '%s', %s, '%s', '%s');
                             """ % (
                     int(silveira[j][6]) if silveira[j][6] is not None else 'null',
                     silveira[j][7].replace("'", '') if silveira[j][7] is not None else 'null',
                     silveira[j][8].replace("'", '') if silveira[j][8] is not None else 'null',
                     silveira[j][9].replace("'", '') if silveira[j][9] is not None else 'null',
                     silveira[j][10].replace("'", '') if silveira[j][10] is not None else 'null',
-                    teste[i][3])
+                    teste[i][3],
+                    datetime.now(),
+                    datetime.now())
 
                 execute_sql(sql_insert)
                 execute_sql(sql_update)
