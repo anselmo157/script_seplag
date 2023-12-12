@@ -10,20 +10,20 @@ def connect_db():
     return connection
 
 
-def create_db(sql):
+def create_db(sql_create):
     con = connect_db()
     cur = con.cursor()
-    cur.execute(sql)
+    cur.execute(sql_create)
     con.commit()
     con.close()
 
 
-def execute_sql(sql):
+def execute_sql(sql, values):
     con = connect_db()
     cur = con.cursor()
 
     try:
-        cur.execute(sql)
+        cur.execute(sql, values)
         con.commit()
     except(Exception, psycopg2.DatabaseError) as error:
         print('Error: %s' % error)
@@ -34,13 +34,13 @@ def execute_sql(sql):
     cur.close()
 
 
-def query_db(sql):
+def query_db(sql_query):
     con = connect_db()
     cur = con.cursor()
-    cur.execute(sql)
-    recset = cur.fetchall()
+    cur.execute(sql_query)
+    aux_query = cur.fetchall()
     registers = []
-    for rec in recset:
+    for rec in aux_query:
         registers.append(rec)
     con.close()
 
@@ -67,8 +67,6 @@ order by nome_associado"""
             if seplag[i][1] == associados[j][1] and str(seplag[i][2]) == str(associados[j][2]):
                 exists.append(i)
 
-    ###Criar verificador de Rubrica mensal, e caso existam duas rubricas devem ser adicionado as duas
-
     for i in range(len(seplag)):
         if i not in exists:
             toAdd.append(seplag[i])
@@ -90,10 +88,10 @@ order by nome_associado"""
                 if toAdd[i][1] == toAdd[j][1] and str(toAdd[i][2]) == str(toAdd[j][2]):
                     print('i' + str(toAdd[i]) + 'j' + str(toAdd[j]))
 
-    sql = 'DROP TABLE IF EXISTS public.teste'
-    create_db(sql)
+    sql_drop_table = 'DROP TABLE IF EXISTS public.teste'
+    create_db(sql_drop_table)
 
-    sql = '''CREATE TABLE public.teste
+    sql_create_table = '''CREATE TABLE public.teste
                   ( id_associado             serial primary key, 
                     nome_associado           character varying(250), 
                     data_nascimento          date, 
@@ -120,12 +118,12 @@ order by nome_associado"""
                     genero                   character varying(1),
                     data_inicio              date
                   )'''
-    create_db(sql)
+    create_db(sql_create_table)
 
-    sql = 'DROP TABLE IF EXISTS public.teste_enderecos'
-    create_db(sql)
+    sql_drop_table = 'DROP TABLE IF EXISTS public.teste_enderecos'
+    create_db(sql_drop_table)
 
-    sql = '''CREATE TABLE public.teste_enderecos
+    sql_create_table = '''CREATE TABLE public.teste_enderecos
                   ( id_endereco              serial primary key, 
                     denominacao              character varying(150), 
                     logradouro               character varying(250),
@@ -140,12 +138,12 @@ order by nome_associado"""
                     dependente_id            integer,
                     is_cobranca              boolean
                   )'''
-    create_db(sql)
+    create_db(sql_create_table)
 
-    sql = 'DROP TABLE IF EXISTS public.teste_telefones'
-    create_db(sql)
+    sql_drop_table = 'DROP TABLE IF EXISTS public.teste_telefones'
+    create_db(sql_drop_table)
 
-    sql = '''CREATE TABLE public.teste_telefones
+    sql_create_table = '''CREATE TABLE public.teste_telefones
                       ( id_telefone              serial primary key, 
                         numero_telefone          text,
                         codigo_area              integer,
@@ -153,22 +151,25 @@ order by nome_associado"""
                         created                  timestamp without time zone,
                         modified                 timestamp without time zone
                       )'''
-    create_db(sql)
+    create_db(sql_create_table)
 
     for i in range(len(toAdd)):
-        sql = """
+        sql_insert_associados = """
             INSERT into public.teste (nome_associado,matricula,orgaoaverbador_id,rubrica_id,created,modified) 
-            values('%s','%s','%s','%s','%s','%s');
-            """ % (
-            toAdd[i][0], toAdd[i][1], toAdd[i][2], toAdd[i][3], datetime.now(), datetime.now())
-        execute_sql(sql)
+            values(%s, %s, %s, %s, %s, %s);
+            """
+        sql_insert_associados_values = (toAdd[i][0], toAdd[i][1], toAdd[i][2], toAdd[i][3], datetime.now(),
+                                        datetime.now())
+
+        execute_sql(sql_insert_associados, sql_insert_associados_values)
 
     sql_silveira = """select nome, matricula, orgao, cpf, email, telefone, cep, endereco, 
 num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by nome"""
 
     silveira = query_db(sql_silveira)
 
-    sql_teste = """select nome_associado, matricula, orgaoaverbador_id, id_associado from teste order by nome_associado"""
+    sql_teste = """select nome_associado, matricula, orgaoaverbador_id, id_associado from teste order by 
+    nome_associado"""
 
     teste = query_db(sql_teste)
 
@@ -209,83 +210,24 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
                         ddd = silveira[j][5][:2]
                         phone = silveira[j][5][2:]
 
-                sql_update = None
-                sql_insert_address = None
-                sql_insert_phone = None
+                sql_insert_address = """insert into public.teste_enderecos (cep, logradouro, numero, complemento, 
+                bairro, cidade_id, associado_id, created, modified) values(%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+                sql_insert_address_values = (silveira[j][6], silveira[j][7], silveira[j][8], silveira[j][9],
+                                             silveira[j][10], cidade_id, teste[i][3], datetime.now(), datetime.now())
 
-                if cidade_id is None:
-                    sql_update = """update public.teste set cpf = ('%s'), email1 = ('%s'), telefone = ('%s'), modified = ('%s') where id_associado = ('%s')
-                                                """ % (
-                        cpf,
-                        silveira[j][4] if silveira[j][4] is not None else 'null',
-                        silveira[j][5] if silveira[j][5] is not None else 'null',
-                        datetime.now(),
-                        teste[i][3])
+                sql_update = """update public.teste set cpf = %s, email1 = %s, telefone = %s, cidade_id = %s, 
+                modified = %s where id_associado = %s"""
+                sql_update_values = (cpf, silveira[j][4], silveira[j][5], cidade_id, datetime.now(), teste[i][3])
 
-                    sql_insert_address = """
-                                               INSERT into public.teste_enderecos (cep, logradouro, numero, complemento, bairro, associado_id, created, modified) 
-                                               values(%s,'%s','%s','%s', '%s', %s, '%s', '%s');
-                                               """ % (
-                        int(silveira[j][6]) if silveira[j][6] is not None else 'null',
-                        silveira[j][7].replace("'", '') if silveira[j][7] is not None else 'null',
-                        silveira[j][8].replace("'", '') if silveira[j][8] is not None else 'null',
-                        silveira[j][9].replace("'", '') if silveira[j][9] is not None else 'null',
-                        silveira[j][10].replace("'", '') if silveira[j][10] is not None else 'null',
-                        teste[i][3],
-                        datetime.now(),
-                        datetime.now())
-                else:
-                    sql_update = """update public.teste set cpf = ('%s'), email1 = ('%s'), telefone = ('%s'), cidade_id = %s, modified = ('%s') where id_associado = ('%s')
-                                 """ % (
-                        cpf,
-                        silveira[j][4] if silveira[j][4] is not None else 'null',
-                        silveira[j][5] if silveira[j][5] is not None else 'null',
-                        cidade_id,
-                        datetime.now(),
-                        teste[i][3])
+                sql_insert_phone = """insert into public.teste_telefones (numero_telefone, codigo_area, associado_id, 
+                created, modified) values(%s, %s, %s, %s, %s)"""
+                sql_insert_phone_values = (phone, ddd, teste[i][3], datetime.now(), datetime.now())
 
-                    sql_insert_address = """
-                                INSERT into public.teste_enderecos (cep, logradouro, numero, complemento, bairro, cidade_id ,associado_id, created, modified) 
-                                values(%s,'%s','%s','%s', '%s', %s, %s, '%s', '%s');
-                                """ % (
-                        int(silveira[j][6]) if silveira[j][6] is not None else 'null',
-                        silveira[j][7].replace("'", '') if silveira[j][7] is not None else 'null',
-                        silveira[j][8].replace("'", '') if silveira[j][8] is not None else 'null',
-                        silveira[j][9].replace("'", '') if silveira[j][9] is not None else 'null',
-                        silveira[j][10].replace("'", '') if silveira[j][10] is not None else 'null',
-                        cidade_id,
-                        teste[i][3],
-                        datetime.now(),
-                        datetime.now())
-
-                if ddd is None:
-                    sql_insert_phone = """
-                                       insert into public.teste_telefones (numero_telefone, associado_id, created, modified)
-                                       values(%s, %s, '%s', '%s')
-                                       """ % (
-                                              phone,
-
-                                              teste[i][3],
-                                              datetime.now(),
-                                              datetime.now()
-                                       )
-                else :
-                    sql_insert_phone = """
-                                       insert into public.teste_telefones (numero_telefone, codigo_area, associado_id, created, modified)
-                                       values(%s, '%s', %s, '%s', '%s')
-                                       """ % (
-                                             phone,
-                                             ddd if ddd is not None else 'null',
-                                             teste[i][3],
-                                             datetime.now(),
-                                             datetime.now()
-                                       )
-
-                execute_sql(sql_update)
+                execute_sql(sql_update, sql_update_values)
                 if silveira[j][7] is not None:
-                    execute_sql(sql_insert_address)
+                    execute_sql(sql_insert_address, sql_insert_address_values)
                 if silveira[j][5] is not None:
-                    execute_sql(sql_insert_phone)
+                    execute_sql(sql_insert_phone, sql_insert_phone_values)
 
     sql_associados = """select id_associado, cpf from public.associados order by id_associado"""
 
@@ -298,7 +240,9 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
     for i in range(len(teste)):
         for j in range(len(associados)):
             if teste[i][1] is not None and teste[i][1] == associados[j][1]:
-                sql_update = """
-                             update public.teste set cpf = null where id_associado = ('%s')
-                             """ % (teste[i][0])
-                execute_sql(sql_update)
+                sql_remove_cpf = """
+                             update public.teste set cpf = null where id_associado = %s
+                             """
+                sql_remove_cpf_values = (teste[i][0],)
+
+                execute_sql(sql_remove_cpf, sql_remove_cpf_values)
