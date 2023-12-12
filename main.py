@@ -18,12 +18,16 @@ def create_db(sql_create):
     con.close()
 
 
-def execute_sql(sql, values):
+def execute_sql(sql, values, return_id=False):
     con = connect_db()
     cur = con.cursor()
 
+    aux_sql = None
+
     try:
         cur.execute(sql, values)
+        if return_id:
+            aux_sql = cur.fetchall()
         con.commit()
     except(Exception, psycopg2.DatabaseError) as error:
         print('Error: %s' % error)
@@ -32,6 +36,9 @@ def execute_sql(sql, values):
         return 1
 
     cur.close()
+
+    if return_id:
+        return aux_sql[0][0]
 
 
 def query_db(sql_query):
@@ -48,7 +55,7 @@ def query_db(sql_query):
 
 
 if __name__ == '__main__':
-    sql_associados = """select nome_associado, matricula, codigo_orgao_averbador from associados
+    sql_associados = """select nome_associado, matricula, codigo_orgao_averbador, cpf from associados
 join orgaoaverbadores ON orgaoaverbadores.id_orgaoaverbador = associados.orgaoaverbador_id 
 order by nome_associado"""
 
@@ -153,37 +160,42 @@ order by nome_associado"""
                       )'''
     create_db(sql_create_table)
 
+    added_associados = list()
+
     for i in range(len(toAdd)):
         sql_insert_associados = """
-            INSERT into public.teste (nome_associado,matricula,orgaoaverbador_id,rubrica_id,created,modified) 
-            values(%s, %s, %s, %s, %s, %s);
+            insert into public.teste (nome_associado,matricula,orgaoaverbador_id,rubrica_id,created,modified) 
+            values(%s, %s, %s, %s, %s, %s) returning id_associado;
             """
         sql_insert_associados_values = (toAdd[i][0], toAdd[i][1], toAdd[i][2], toAdd[i][3], datetime.now(),
                                         datetime.now())
 
-        execute_sql(sql_insert_associados, sql_insert_associados_values)
+        id_associado = execute_sql(sql_insert_associados, sql_insert_associados_values, True)
+        added_associados.append([toAdd[i], id_associado])
 
     sql_silveira = """select nome, matricula, orgao, cpf, email, telefone, cep, endereco, 
-num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by nome"""
+    num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by nome"""
 
     silveira = query_db(sql_silveira)
 
-    sql_teste = """select nome_associado, matricula, orgaoaverbador_id, id_associado from teste order by 
-    nome_associado"""
+    for i in range(len(added_associados)):
 
-    teste = query_db(sql_teste)
-
-    for i in range(len(teste)):
         for j in range(len(silveira)):
-            if teste[i][0] == silveira[j][0] and (teste[i][1] == silveira[j][1] or teste[i][2] == silveira[j][2]):
-                cpf = ''
+            if added_associados[i][0][0] == silveira[j][0] and (added_associados[i][0][1] == silveira[j][1] or
+                                                                added_associados[i][0][2] == silveira[j][2]):
+                cpf = None
 
-                if len(silveira[j][3]) < 11:
-                    zeros_plus = 11 - len(silveira[j][3])
-                    cpf = (zeros_plus * '0') + silveira[j][3]
-                    cpf = cpf[:9] + '-' + cpf[9:]
-                else:
-                    cpf = silveira[j][3][:9] + '-' + silveira[j][3][9:]
+                if silveira[j][3] is not None:
+                    if len(silveira[j][3]) < 11:
+                        zeros_plus = 11 - len(silveira[j][3])
+                        cpf = (zeros_plus * '0') + silveira[j][3]
+                        cpf = cpf[:9] + '-' + cpf[9:]
+                    else:
+                        cpf = silveira[j][3][:9] + '-' + silveira[j][3][9:]
+
+                    for k in range(len(associados)):
+                        if cpf == associados[k][3]:
+                            cpf = None
 
                 cidade_id = None
 
@@ -210,39 +222,23 @@ num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by 
                         ddd = silveira[j][5][:2]
                         phone = silveira[j][5][2:]
 
+                associado_id = added_associados[i][1]
+
                 sql_insert_address = """insert into public.teste_enderecos (cep, logradouro, numero, complemento, 
                 bairro, cidade_id, associado_id, created, modified) values(%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
                 sql_insert_address_values = (silveira[j][6], silveira[j][7], silveira[j][8], silveira[j][9],
-                                             silveira[j][10], cidade_id, teste[i][3], datetime.now(), datetime.now())
+                                             silveira[j][10], cidade_id, associado_id, datetime.now(), datetime.now())
 
                 sql_update = """update public.teste set cpf = %s, email1 = %s, telefone = %s, cidade_id = %s, 
                 modified = %s where id_associado = %s"""
-                sql_update_values = (cpf, silveira[j][4], silveira[j][5], cidade_id, datetime.now(), teste[i][3])
+                sql_update_values = (cpf, silveira[j][4], silveira[j][5], cidade_id, datetime.now(), associado_id)
 
                 sql_insert_phone = """insert into public.teste_telefones (numero_telefone, codigo_area, associado_id, 
                 created, modified) values(%s, %s, %s, %s, %s)"""
-                sql_insert_phone_values = (phone, ddd, teste[i][3], datetime.now(), datetime.now())
+                sql_insert_phone_values = (phone, ddd, associado_id, datetime.now(), datetime.now())
 
                 execute_sql(sql_update, sql_update_values)
                 if silveira[j][7] is not None:
                     execute_sql(sql_insert_address, sql_insert_address_values)
                 if silveira[j][5] is not None:
                     execute_sql(sql_insert_phone, sql_insert_phone_values)
-
-    sql_associados = """select id_associado, cpf from public.associados order by id_associado"""
-
-    associados = query_db(sql_associados)
-
-    sql_teste = """select id_associado, cpf from public.teste order by id_associado"""
-
-    teste = query_db(sql_teste)
-
-    for i in range(len(teste)):
-        for j in range(len(associados)):
-            if teste[i][1] is not None and teste[i][1] == associados[j][1]:
-                sql_remove_cpf = """
-                             update public.teste set cpf = null where id_associado = %s
-                             """
-                sql_remove_cpf_values = (teste[i][0],)
-
-                execute_sql(sql_remove_cpf, sql_remove_cpf_values)
