@@ -4,8 +4,8 @@ import psycopg2
 
 def connect_db():
     connection = psycopg2.connect(host='localhost',
-                                  database='cabemce_v01',
-                                  user='postgres',
+                                  database='cabemce',
+                                  user='martins',
                                   password='34784575')
     return connection
 
@@ -163,12 +163,26 @@ order by nome_associado"""
     added_associados = list()
 
     for i in range(len(toAdd)):
+
+        rubrica_id = None
+
+        if toAdd[i][3] == 633:
+            rubrica_id = 1
+        else:
+            rubrica_id = 2
+
+        sql_orgaoaverbador_id = """
+                                select id_orgaoaverbador from orgaoaverbadores where codigo_orgao_averbador = (%s)
+                                """ % (toAdd[i][2])
+        orgaoaverbador_id = query_db(sql_orgaoaverbador_id)[0][0]
+
         sql_insert_associados = """
-            insert into public.teste (nome_associado,matricula,orgaoaverbador_id,rubrica_id,created,modified) 
-            values(%s, %s, %s, %s, %s, %s) returning id_associado;
+            insert into public.associados (nome_associado,matricula,orgaoaverbador_id,rubrica_id,data_nascimento,
+            created,modified,import_seplag) 
+            values(%s, %s, %s, %s, %s, %s, %s, %s) returning id_associado;
             """
-        sql_insert_associados_values = (toAdd[i][0], toAdd[i][1], toAdd[i][2], toAdd[i][3], datetime.now(),
-                                        datetime.now())
+        sql_insert_associados_values = (toAdd[i][0], toAdd[i][1], orgaoaverbador_id, rubrica_id, '1900-01-01',
+                                        datetime.now(), datetime.now(), True)
 
         id_associado = execute_sql(sql_insert_associados, sql_insert_associados_values, True)
         added_associados.append([toAdd[i], id_associado])
@@ -196,6 +210,12 @@ order by nome_associado"""
                     for k in range(len(associados)):
                         if cpf == associados[k][3]:
                             cpf = None
+                        if cpf == '034832395-61':
+                            cpf = None
+                        if cpf == '118989333-91':
+                            cpf = None
+                        if cpf == '078785294-50':
+                            cpf = None
 
                 cidade_id = None
 
@@ -213,7 +233,7 @@ order by nome_associado"""
 
                 if silveira[j][5] is not None:
                     if len(silveira[j][5]) < 10:
-                        ddd = None
+                        ddd = 00
                         if len(silveira[j][5]) < 8:
                             phone = '3' + silveira[j][5]
                         else:
@@ -224,18 +244,20 @@ order by nome_associado"""
 
                 associado_id = added_associados[i][1]
 
-                sql_insert_address = """insert into public.teste_enderecos (cep, logradouro, numero, complemento, 
-                bairro, cidade_id, associado_id, created, modified) values(%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+                sql_insert_address = """insert into public.enderecos (cep, logradouro, numero, complemento, 
+                bairro, cidade_id, associado_id, denominacao, created, modified) values(%s, %s, %s, %s, %s, %s, %s, %s, 
+                %s, %s)"""
                 sql_insert_address_values = (silveira[j][6], silveira[j][7], silveira[j][8], silveira[j][9],
-                                             silveira[j][10], cidade_id, associado_id, datetime.now(), datetime.now())
+                                             silveira[j][10], cidade_id, associado_id, 'Endereco Importação',
+                                             datetime.now(), datetime.now())
 
-                sql_update = """update public.teste set cpf = %s, email1 = %s, telefone = %s, cidade_id = %s, 
+                sql_update = """update public.associados set cpf = %s, email1 = %s, cidade_id = %s, 
                 modified = %s where id_associado = %s"""
-                sql_update_values = (cpf, silveira[j][4], silveira[j][5], cidade_id, datetime.now(), associado_id)
+                sql_update_values = (cpf, silveira[j][4], cidade_id, datetime.now(), associado_id)
 
-                sql_insert_phone = """insert into public.teste_telefones (numero_telefone, codigo_area, associado_id, 
-                created, modified) values(%s, %s, %s, %s, %s)"""
-                sql_insert_phone_values = (phone, ddd, associado_id, datetime.now(), datetime.now())
+                sql_insert_phone = """insert into public.telefone (numero_telefone, codigo_area, telecomempresa_id, 
+                associado_id, created, modified) values(%s, %s, %s, %s, %s, %s)"""
+                sql_insert_phone_values = (phone, ddd, 5, associado_id, datetime.now(), datetime.now())
 
                 execute_sql(sql_update, sql_update_values)
                 if silveira[j][7] is not None:
