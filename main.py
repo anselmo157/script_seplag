@@ -130,7 +130,7 @@ order by nome_associado"""
     for i in range(len(added_associados)):
 
         for j in range(len(silveira)):
-            if added_associados[i][0][0] == silveira[j][0] and (added_associados[i][0][1] == silveira[j][1] or
+            if added_associados[i][0][0] == silveira[j][0] and (added_associados[i][0][1] == silveira[j][1] and
                                                                 added_associados[i][0][2] == silveira[j][2]):
                 cpf = None
 
