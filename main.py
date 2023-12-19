@@ -95,6 +95,8 @@ order by nome_associado"""
                 if toAdd[i][1] == toAdd[j][1] and str(toAdd[i][2]) == str(toAdd[j][2]):
                     print('i' + str(toAdd[i]) + 'j' + str(toAdd[j]))
 
+    count_insert = 0
+
     added_associados = list()
 
     for i in range(len(toAdd)):
@@ -121,11 +123,16 @@ order by nome_associado"""
 
         id_associado = execute_sql(sql_insert_associados, sql_insert_associados_values, True)
         added_associados.append([toAdd[i], id_associado])
+        count_insert += 1
 
     sql_silveira = """select nome, matricula, orgao, cpf, email, telefone, cep, endereco, 
     num, complemento, bairro, municipio  from auxiliares.dados_silveira_v1 order by nome"""
 
     silveira = query_db(sql_silveira)
+
+    count_updates = 0
+    count_address_added = 0
+    count_phone_added= 0
 
     for i in range(len(added_associados)):
 
@@ -195,7 +202,15 @@ order by nome_associado"""
                 sql_insert_phone_values = (phone, ddd, 5, associado_id, datetime.now(), datetime.now())
 
                 execute_sql(sql_update, sql_update_values)
+                count_updates += 1
                 if silveira[j][7] is not None:
+                    count_address_added += 1
                     execute_sql(sql_insert_address, sql_insert_address_values)
                 if silveira[j][5] is not None:
+                    count_phone_added += 1
                     execute_sql(sql_insert_phone, sql_insert_phone_values)
+
+    print('Inserções de associados: ' + str(count_insert))
+    print('Atualizações de dados dos associados: ' + str(count_updates))
+    print('Inserções de endereços: ' + str(count_address_added))
+    print('Inserções de telefones: ' + str(count_phone_added))
